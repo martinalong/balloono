@@ -18,6 +18,8 @@ pygame.display.set_caption("Balloono")
 
 #load images
 background = pygame.image.load('background.png')
+bubble = pygame.image.load('bubble.png')
+splash = pygame.image.load('splash.png')
 # block = pygame.image.load('stone.png')
 # brick = pygame.image.load('brick.png')
 # balloon = pygame.image.load('balloon.png')
@@ -66,23 +68,12 @@ class Board(object):
                         self.brick_count += 1
                 else:
                     r = random.random() 
-                    if r <= 0.75:
+                    if r <= 0.85:
                         place.add_obj(Brick(place))
                         self.brick_count += 1
         self.places = sorted(self.places, key=lambda tup: tup[0] + tup[1])
         self.monkeys = [Monkey(self.board[0][0], red_right), Monkey(self.board[self.height-1][self.width-1], white_left)]
-        #later, figure out how to make monkey bots and move them (maybe call ltheir move function every turn?)
 
-    # def runGame(self):
-    #     return
-        # while (true):
-        #     if self.brick_count == 0:
-        #         continue
-        #         #initiate bricks closing in. If brick falls on monkey, it dies
-        #         #initiate win sequence for that monkey
-        #     #turn keystrokes into monkey.move, and can only move if there's no obstacle there
-        #     if key == "DOWN" and self.players[0]:
-        #         self.players[0]
 
 class Place(object):
     """ A spot on the board with x and y coordinates and potentially an object, powerup, and monkeys """
@@ -90,6 +81,7 @@ class Place(object):
         self.monkey = None
         self.powerup = None
         self.obj = None
+        self.splash = None
         self.x = x
         self.y = y
         self.pos = (ORIGIN[0] + (self.x - self.y) * HORIZ, ORIGIN[1] + (self.x + self.y) * VERT)
@@ -99,6 +91,8 @@ class Place(object):
             self.powerup = obj
         elif isinstance(obj, Monkey):
             self.monkey = obj
+        elif isinstance(obj, Splash):
+            self.splash = obj
         else: 
             self.obj = obj
 
@@ -107,6 +101,8 @@ class Place(object):
             self.powerup = None
         elif isinstance(obj, Monkey):
             self.monkey = None
+        elif isinstance(obj, Splash):
+            self.splash = None
         else:
             self.obj = None
 
@@ -131,12 +127,12 @@ class Brick(Occupant):
         Occupant.__init__(self)
         self.img = pygame.image.load('brick.png')
         self.place = place
-        r = random.random() * 10
-        if r <= 1:
+        r = random.random() * 100
+        if r <= 13:
             self.powerup = Powerup("range", self.place)
-        elif r <= 2:
+        elif r <= 26:
             self.powerup = Powerup("balloons", self.place)
-        elif r <= 3:
+        elif r <= 39:
             self.powerup = Powerup("speed", self.place)
         else:
             self.powerup = None
@@ -173,9 +169,10 @@ class Monkey(object):
         self.rng = 1
         self.speed = 5 #large numbers = slow
         self.balloons = 1
-        self.bubble = False
+        self.bubble = 0
         self.place = place
         self.place.monkey = self
+        self.coordinates = (self.place.x, self.place.y)
         self.pos = place.pos
         self.change = (0, 0)
         self.lost = False
@@ -183,66 +180,60 @@ class Monkey(object):
     def move(self):
         """ Handles monkey movements if they are valid based upon surroundings.
         Also handles any powerups or popping bubbled monkeys """
-        #the issue is with self.change here. immediately becomes (0,0) and stays there once hit obstacle
-        #gets here, but doesn't go further when hit obstacle
-        if self.change != (0, 0) and not self.bubble:
-            new_pos = (self.pos[0] + self.change[0]/self.speed, self.pos[1] + self.change[1]/self.speed)
-            y = (new_pos[1] - ORIGIN[1]) / (VERT * 2) + (ORIGIN[0] - new_pos[0]) / (HORIZ * 2)
-            x = (1 / HORIZ) * (new_pos[0] - ORIGIN[0]) + y
-            if y >= 10.2 or x >= 10.2 or y < -0.3 or x < -0.3:
-                return
-            new_place = Board.board[round(y)][round(x)]
-            # if newPlace != self.place and isinstance(newPlace.obj, Monkey) and self.place.obj.bubble:
-            #     self.place.obj.pop()
-            if (new_place == self.place) or (not new_place.obj and not new_place.monkey):
-                if new_place != self.place:
-                    self.place.monkey = None
-                    new_place.monkey = self
-                    self.place = new_place
-                self.pos = new_pos
-                if self.place.powerup:
-                    self.get_powerup(self.place.powerup)
+        if self.change == stay:
+            return
+        if self.bubble:
+            return
+        new_pos = (self.pos[0] + self.change[0]/self.speed, self.pos[1] + self.change[1]/self.speed)
+        y = (new_pos[1] - ORIGIN[1]) / (VERT * 2) + (ORIGIN[0] - new_pos[0]) / (HORIZ * 2)
+        x = (1 / HORIZ) * (new_pos[0] - ORIGIN[0]) + y
+        if y >= 10.2 or x >= 10.2 or y < -0.3 or x < -0.3:
+            return
+        new_place = Board.board[round(y)][round(x)]
+        if new_place.monkey and new_place.monkey.bubble:
+            new_place.monkey.pop()
+        elif (new_place == self.place) or (not new_place.obj and not new_place.monkey):
+            if new_place != self.place:
+                self.place.monkey = None
+                new_place.monkey = self
+                self.place = new_place
+            self.pos = new_pos
+            if self.place.powerup:
+                self.get_powerup(self.place.powerup)
 
     def get_powerup(self, powerup):
         """ Processes the powerup on that spot and removes it """
         if powerup.power == "range":
-            self.rng += 1
+            if self.rng < 11:
+                self.rng += 1
         elif powerup.power == "balloons":
             self.balloons += 1
         elif powerup.power == "speed":
-            self.speed -= 1
+            if self.speed > 1:
+                self.speed -= 0.5
         powerup.remove()
 
     def drop_balloon(self):
         """ Drops a balloon if there are any """
-        if self.balloons:
+        if not self.bubble and self.balloons:
             self.balloons -= 1
             Balloon(self.rng, self.place, self)
 
     def splash(self):
         """ Splashes the monkey and puts it in a bubble if it isn't already in one """
         if not self.bubble:
-            self.bubble = True
-            #animate bubble monkey
-            #delay time, then unbubble
+            self.bubble = pygame.time.get_ticks() + 5000
+
+    def tick(self):
+        if self.bubble < pygame.time.get_ticks():
+            self.bubble = 0
 
     def pop(self):
         """ Removes the monkey if it is popped while in a bubble """
         if self.bubble:
-            self.place.monkeys.remove(self)
+            self.place.monkey = None
             self.lost = True
             return
-            #undraw the monkey
-            #run win operation for other monkey
-
-class MonkeyBot(Monkey):
-    """ A bot monkey that is run by an automatic function and moves and drops balloons """
-    def __init__(self, place):
-        Monkey.__init__(self, place, red_left)
-
-    def strategy(self):
-        """ Dictates how the bot moves and drops balloons """
-        return
 
 class Balloon(Occupant):
     """ An exploding balloon that splashes nearby objects """
@@ -254,38 +245,71 @@ class Balloon(Occupant):
         self.place = place
         self.place.add_obj(self)
         self.img = pygame.image.load('balloon.png')
+        self.counter = 70
+        self.splashed = False
         #draw the balloon on that place. few seconds delay, animate bouncing
         #self.splash()
 
+    def tick(self):
+        if not self.counter:
+            self.splash()
+        else:
+            self.counter -= 1
+
     def splash(self):
         """ Balloon pops and splashes nearby objects """
+        self.splashed = True
+        self.monkey.balloons += 1
         reach = [-1] * 4 #represents [up, down, left, right]
         x, y = self.place.x, self.place.y
         def splash_spot(x, y, d, i):
             if x < 0 or y < 0 or x >= Board.width or y >= Board.height:
+                reach[d] = i - 1
                 return
-            if reach[d] == -1:
-                if y-i == 0:
+            p = Board.board[y][x]
+            if not p.obj and not p.monkey:
+                p.add_obj(Splash(p))
+            if p.obj:
+                if isinstance(p.obj, Stone):
+                    reach[d] = i-1
+                elif isinstance(p.obj, Brick):
+                    p.obj.splash()
+                    p.add_obj(Splash(p))
                     reach[d] = i
-                obj = Board.board[y][x].obj
-                if obj:
-                    if isinstance(obj, Stone):
-                        reach[d] = i-1
-                    elif isinstance(obj, Brick):
-                        obj.splash()
-                        reach[d] = i
-                for monkey in Board.board[y][x].monkeys:
-                    monkey.splash()
-            #animate the splash in here?
+                elif isinstance(p.obj, Balloon):
+                    if not p.obj.splashed:
+                        p.obj.splash()
+                    reach[d] = i
+            if p.monkey:
+                p.monkey.splash()
+                p.add_obj(Splash(p))
+        if self.place.monkey:
+            self.place.monkey.splash()
+        self.place.add_obj(Splash(p))
         for i in range(1, self.rng + 1):
-            splash_spot(x, y - i, 0, i)
-            splash_spot(x, y + i, 1, i)
-            splash_spot(x - i, y, 2, i)
-            splash_spot(x + i, y, 3, i)
-        #use reach to animate the splash (and if a value is -1, that means it is the full i)
-        #also animate the pop for a second and remove the balloon
+            if reach[0] == -1:
+                splash_spot(x, y - i, 0, i)
+            if reach[1] == -1:
+                splash_spot(x, y + i, 1, i)
+            if reach[2] == -1:
+                splash_spot(x - i, y, 2, i)
+            if reach[3] == -1:
+                splash_spot(x + i, y, 3, i)
         self.place.remove_obj(self)
-        self.monkey.balloons += 1
+
+class Splash(Occupant):
+    """ The splash from a balloon """
+    def __init__(self, place):
+        self.place = place
+        self.counter = 5
+        self.img = splash
+    
+    def tick(self):
+        if self.counter:
+            self.counter -= 1
+        else:
+            self.place.remove_obj(self)
+        
 
 
 ###############################################
@@ -298,9 +322,6 @@ board = Board()
 p1 = board.monkeys[0]
 p2 = board.monkeys[1]
 
-#screen.blit(block, (304, 316))
-# screen.blit(block, (162.04, 400.22))
-# screen.blit(block, (351.96, 263.065))
 pygame.display.update()
 
 #game loop
@@ -377,9 +398,17 @@ while running:
         p = board.board[tup[0]][tup[1]] 
         if p.obj:
             screen.blit(p.obj.img, p.pos)
+            if isinstance(p.obj, Balloon):
+                p.obj.tick()
         elif p.powerup:
             screen.blit(p.powerup.img, p.pos)
         if p.monkey:
             screen.blit(p.monkey.img, p.monkey.pos)
+            if p.monkey.bubble:
+                screen.blit(bubble, p.monkey.pos)
+                p.monkey.tick()
+        if p.splash: 
+            screen.blit(p.splash.img, p.pos)
+            p.splash.tick()
     pygame.display.update()
 pygame.quit()
