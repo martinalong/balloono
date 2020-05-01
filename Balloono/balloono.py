@@ -13,19 +13,11 @@ stay = (0, 0)
 pygame.init()
 screen = pygame.display.set_mode((750, 700))
 pygame.display.set_caption("Balloono")
-# icon = pygame.image.load('monkey.png')
-# pygame.display.set_icon(icon)
 
 #load images
 background = pygame.image.load('background.png')
 bubble = pygame.image.load('bubble.png')
 splash = pygame.image.load('splash.png')
-# block = pygame.image.load('stone.png')
-# brick = pygame.image.load('brick.png')
-# balloon = pygame.image.load('balloon.png')
-# speed_powerup = pygame.image.load('speed_powerup.png')
-# balloon_powerup = pygame.image.load('balloon_powerup.png')
-# range_powerup = pygame.image.load('range_powerup.png')
 red_up = pygame.image.load('red_up.png')
 red_down = pygame.image.load('red_down.png')
 red_left = pygame.image.load('red_left.png')
@@ -247,8 +239,6 @@ class Balloon(Occupant):
         self.img = pygame.image.load('balloon.png')
         self.counter = 70
         self.splashed = False
-        #draw the balloon on that place. few seconds delay, animate bouncing
-        #self.splash()
 
     def tick(self):
         if not self.counter:
@@ -328,8 +318,6 @@ pygame.display.update()
 running = True 
 while running: 
     screen.blit(background, (0, -50))
-    # for i in range(11):
-    #     screen.blit(block())
     if p1.lost:
         print("p2 wins!")
     elif p2.lost:
